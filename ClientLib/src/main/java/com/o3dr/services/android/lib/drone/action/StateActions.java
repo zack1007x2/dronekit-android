@@ -14,6 +14,12 @@ public class StateActions {
     public static final String ACTION_SET_VEHICLE_MODE = Utils.PACKAGE_NAME + ".action.SET_VEHICLE_MODE";
     public static final String EXTRA_VEHICLE_MODE = "extra_vehicle_mode";
 
+    public static final String ACTION_SET_VEHICLE_HOME = Utils.PACKAGE_NAME + ".action.SET_VEHICLE_HOME";
+    public static final String EXTRA_VEHICLE_HOME_LOCATION = "extra_vehicle_home_location";
+
+    public static final String ACTION_ENABLE_RETURN_TO_ME = Utils.PACKAGE_NAME + ".action.ENABLE_RETURN_TO_ME";
+    public static final String EXTRA_IS_RETURN_TO_ME_ENABLED = "extra_is_return_to_me_enabled";
+
     //Private to prevent instantiation
     private StateActions(){}
 }

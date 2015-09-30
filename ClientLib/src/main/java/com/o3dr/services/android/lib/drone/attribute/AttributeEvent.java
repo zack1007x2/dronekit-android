@@ -148,18 +148,33 @@ public class AttributeEvent {
 
     /**
      * Signals updates of the ekf status.
+     * @see {@link com.o3dr.services.android.lib.drone.property.State}
      */
     public static final String STATE_EKF_REPORT = PACKAGE_NAME + ".STATE_EKF_REPORT";
 
     /**
      * Signals updates to the ekf position state.
+     * @see {@link com.o3dr.services.android.lib.drone.property.State}
      */
     public static final String STATE_EKF_POSITION = PACKAGE_NAME + ".STATE_EKF_POSITION";
 
     /**
      * Signals update of the vehicle mode.
+     * @see {@link com.o3dr.services.android.lib.drone.property.State}
      */
     public static final String STATE_VEHICLE_MODE = PACKAGE_NAME + ".STATE_VEHICLE_MODE";
+
+    /**
+     * Signals vehicle vibration updates.
+     * @see {@link com.o3dr.services.android.lib.drone.property.State}
+     */
+    public static final String STATE_VEHICLE_VIBRATION = PACKAGE_NAME + ".STATE_VEHICLE_VIBRATION";
+
+    /**
+     * Signals vehicle UID updates.
+     * @see {@link com.o3dr.services.android.lib.drone.property.State}
+     */
+    public static final String STATE_VEHICLE_UID = PACKAGE_NAME + ".STATE_VEHICLE_UID";
 
     /**
      * Home attribute events.
@@ -191,5 +206,11 @@ public class AttributeEvent {
      * @see {@link AttributeEventExtra#EXTRA_GIMBAL_ORIENTATION_YAW}
      */
     public static final String GIMBAL_ORIENTATION_UPDATED = PACKAGE_NAME + ".GIMBAL_ORIENTATION_UPDATED";
+
+    /**
+     * Signals an update to the return to me state.
+     * Retrieves the current state via {@link AttributeEventExtra#EXTRA_RETURN_TO_ME_STATE}
+     */
+    public static final String RETURN_TO_ME_STATE_UPDATE = PACKAGE_NAME + ".RETURN_TO_ME_STATE_UPDATE";
 
 }

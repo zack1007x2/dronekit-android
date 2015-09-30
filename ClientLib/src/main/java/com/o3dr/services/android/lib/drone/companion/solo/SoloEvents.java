@@ -56,4 +56,16 @@ public class SoloEvents {
      * @see {@link SoloEventExtras#EXTRA_SOLO_GIMBAL_VERSION}
      */
     public static final String SOLO_VERSIONS_UPDATED = PACKAGE_NAME + ".SOLO_VERSIONS_UPDATED";
+
+    /**
+     * Triggers upon updates to the controller mode
+     * @see {@link SoloEventExtras#EXTRA_SOLO_CONTROLLER_MODE}
+     */
+    public static final String SOLO_CONTROLLER_MODE_UPDATED = PACKAGE_NAME + ".SOLO_CONTROLLER_MODE_UPDATED";
+
+    /**
+     * Triggers upon updates to the controller unit system
+     * @see {@link SoloEventExtras#EXTRA_SOLO_CONTROLLER_UNIT}
+     */
+    public static final String SOLO_CONTROLLER_UNIT_UPDATED = PACKAGE_NAME + ".SOLO_CONTROLLER_UNIT_UPDATED";
 }

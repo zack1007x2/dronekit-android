@@ -1,6 +1,7 @@
 package org.droidplanner.services.android.core.drone.companion.solo;
 
 import android.content.Context;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.RemoteException;
 import android.text.TextUtils;
@@ -8,10 +9,14 @@ import android.util.Pair;
 import android.util.SparseArray;
 import android.view.Surface;
 
+import com.o3dr.services.android.lib.drone.attribute.AttributeEvent;
 import com.o3dr.services.android.lib.drone.attribute.error.CommandExecutionError;
+import com.o3dr.services.android.lib.drone.companion.solo.SoloEventExtras;
+import com.o3dr.services.android.lib.drone.companion.solo.SoloEvents;
 import com.o3dr.services.android.lib.drone.companion.solo.controller.SoloControllerMode;
 import com.o3dr.services.android.lib.drone.companion.solo.button.ButtonPacket;
 import com.o3dr.services.android.lib.drone.companion.solo.button.ButtonTypes;
+import com.o3dr.services.android.lib.drone.companion.solo.controller.SoloControllerUnits;
 import com.o3dr.services.android.lib.drone.companion.solo.tlv.SoloButtonSetting;
 import com.o3dr.services.android.lib.drone.companion.solo.tlv.SoloButtonSettingSetter;
 import com.o3dr.services.android.lib.drone.companion.solo.tlv.SoloGoproState;
@@ -56,6 +61,8 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
         void onEUTxPowerComplianceUpdated(boolean isCompliant);
 
         void onVersionsUpdated();
+
+        void onControllerEvent(String event, Bundle eventInfo);
     }
 
     private static final String NO_VIDEO_OWNER = "no_video_owner";
@@ -65,7 +72,7 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
     public static final String SSH_USERNAME = "root";
     public static final String SSH_PASSWORD = "TjSDBkAu";
 
-    private final ControllerLinkManager artooMgr;
+    private final ControllerLinkManager controllerLinkManager;
     private final SoloLinkManager soloLinkMgr;
 
     private final Context context;
@@ -90,7 +97,7 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
         this.handler = handler;
         asyncExecutor = Executors.newCachedThreadPool();
 
-        this.artooMgr = new ControllerLinkManager(context, handler, asyncExecutor);
+        this.controllerLinkManager = new ControllerLinkManager(context, handler, asyncExecutor);
         this.soloLinkMgr = new SoloLinkManager(context, handler, asyncExecutor);
     }
 
@@ -114,14 +121,19 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
 
         resetVideoOwner();
 
-        artooMgr.start(this);
+        controllerLinkManager.start(this);
         soloLinkMgr.start(this);
     }
 
     public void stop() {
         resetVideoOwner();
-        artooMgr.stop();
+        controllerLinkManager.stop();
         soloLinkMgr.stop();
+    }
+
+    public void refreshState() {
+        soloLinkMgr.refreshState();
+        controllerLinkManager.refreshState();
     }
 
     /**
@@ -140,6 +152,7 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
         switch(packet.getMessageType()){
             case TLVMessageTypes.TYPE_SOLO_GOPRO_STATE:
                 goproState = (SoloGoproState) packet;
+                Timber.d("Updated gopro state.");
                 break;
         }
 
@@ -166,6 +179,24 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
     }
 
     @Override
+    public void onControllerModeUpdated() {
+        if (compListener != null){
+            final Bundle eventInfo = new Bundle();
+            eventInfo.putInt(SoloEventExtras.EXTRA_SOLO_CONTROLLER_MODE, getControllerMode());
+            compListener.onControllerEvent(SoloEvents.SOLO_CONTROLLER_MODE_UPDATED, eventInfo);
+        }
+    }
+
+    @Override
+    public void onControllerUnitUpdated(String trimmedResponse) {
+        if(compListener != null){
+            final Bundle eventInfo = new Bundle();
+            eventInfo.putString(SoloEventExtras.EXTRA_SOLO_CONTROLLER_UNIT, trimmedResponse);
+            compListener.onControllerEvent(SoloEvents.SOLO_CONTROLLER_UNIT_UPDATED, eventInfo);
+        }
+    }
+
+    @Override
     public void onPresetButtonLoaded(int buttonType, SoloButtonSetting buttonSettings) {
         if (compListener != null)
             compListener.onPresetButtonLoaded(buttonType, buttonSettings);
@@ -177,8 +208,8 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
             if (compListener != null)
                 compListener.onConnected();
         } else {
-            if (!artooMgr.isLinkConnected())
-                artooMgr.start(this);
+            if (!controllerLinkManager.isLinkConnected())
+                controllerLinkManager.start(this);
 
             if (!soloLinkMgr.isLinkConnected())
                 soloLinkMgr.start(this);
@@ -190,7 +221,7 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
         if (compListener != null)
             compListener.onDisconnected();
 
-        artooMgr.stop();
+        controllerLinkManager.stop();
         soloLinkMgr.stop();
     }
 
@@ -200,33 +231,60 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
             compListener.onVersionsUpdated();
     }
 
+    @Override
+    public void onMacAddressUpdated() {
+        final String soloMacAddress = soloLinkMgr.getMacAddress();
+        final String artooMacAddress = controllerLinkManager.getMacAddress();
+        if(!TextUtils.isEmpty(soloMacAddress) && !TextUtils.isEmpty(artooMacAddress) && compListener != null){
+            compListener.onControllerEvent(AttributeEvent.STATE_VEHICLE_UID, null);
+        }
+    }
+
     public boolean isConnected() {
-        return artooMgr.isLinkConnected() && soloLinkMgr.isLinkConnected();
+        return controllerLinkManager.isLinkConnected() && soloLinkMgr.isLinkConnected();
     }
 
     public Pair<String, String> getWifiSettings() {
-        return artooMgr.getSoloLinkWifiInfo();
+        return controllerLinkManager.getSoloLinkWifiInfo();
     }
 
     public boolean isEUTxPowerCompliant() {
-        return artooMgr.isEUTxPowerCompliant();
+        return controllerLinkManager.isEUTxPowerCompliant();
     }
 
     public void refreshSoloVersions(){
         soloLinkMgr.refreshSoloLinkVersions();
-        artooMgr.refreshControllerVersions();
+        controllerLinkManager.refreshControllerVersions();
     }
 
     public String getControllerVersion() {
-        return artooMgr.getArtooVersion();
+        return controllerLinkManager.getArtooVersion();
     }
 
     public String getControllerFirmwareVersion() {
-        return artooMgr.getStm32Version();
+        return controllerLinkManager.getStm32Version();
     }
 
     public String getVehicleVersion() {
         return soloLinkMgr.getVehicleVersion();
+    }
+
+    @SoloControllerMode.ControllerMode
+    public int getControllerMode(){
+        return  controllerLinkManager.getControllerMode();
+    }
+
+    @SoloControllerUnits.ControllerUnit
+    public String getControllerUnit(){
+        return controllerLinkManager.getControllerUnit();
+    }
+
+    public String getSoloMacAddress(){
+        return soloLinkMgr.getMacAddress();
+    }
+
+    public String getControllerMacAddress(){
+        return controllerLinkManager.getMacAddress();
     }
 
     public String getAutopilotVersion() {
@@ -258,7 +316,7 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
                 @Override
                 public void run() {
                     if (soloLinkMgr.updateSololinkWifi(wifiSsid, wifiPassword)
-                            && artooMgr.updateSololinkWifi(wifiSsid, wifiPassword)) {
+                            && controllerLinkManager.updateSololinkWifi(wifiSsid, wifiPassword)) {
                         Timber.d("Sololink wifi update successful.");
 
                         if (listener != null) {
@@ -279,11 +337,15 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
     }
 
     public void updateControllerMode(@SoloControllerMode.ControllerMode final int selectedMode, ICommandListener listener){
-        artooMgr.updateArtooMode(selectedMode, listener);
+        controllerLinkManager.updateControllerMode(selectedMode, listener);
+    }
+
+    public void updateControllerUnit(@SoloControllerUnits.ControllerUnit final String selectedUnit, ICommandListener listener){
+        controllerLinkManager.updateControllerUnit(selectedUnit, listener);
     }
 
     public void updateEUTxPowerCompliance(boolean isCompliant, ICommandListener listener) {
-        artooMgr.setEUTxPowerCompliance(isCompliant, listener);
+        controllerLinkManager.setEUTxPowerCompliance(isCompliant, listener);
     }
 
     public void startVideoStream(String appId, String newVideoTag, Surface videoSurface, final ICommandListener listener){
@@ -316,7 +378,7 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
             videoTagRef.set(newVideoTag);
 
             Timber.d("Setting video surface layer.");
-            artooMgr.startDecoding(videoSurface, new DecoderListener() {
+            controllerLinkManager.startDecoding(videoSurface, new DecoderListener() {
                 @Override
                 public void onDecodingStarted() {
                     Timber.d("Video decoding started.");
@@ -365,7 +427,7 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
             videoTagRef.set("");
 
             Timber.d("Stopping video decoding. Current owner is %s.", currentVideoOwner);
-            artooMgr.stopDecoding(new DecoderListener() {
+            controllerLinkManager.stopDecoding(new DecoderListener() {
                 @Override
                 public void onDecodingStarted() {
                 }
@@ -405,7 +467,7 @@ public class SoloComp implements CompComp, SoloLinkListener, ControllerLinkListe
         Timber.d("Resetting video tag (%s) and owner id (%s)", videoTagRef.get(), videoOwnerId.get());
         videoTagRef.set("");
         videoOwnerId.set(NO_VIDEO_OWNER);
-        artooMgr.stopDecoding(null);
+        controllerLinkManager.stopDecoding(null);
     }
 
     protected void postAsyncTask(Runnable task){

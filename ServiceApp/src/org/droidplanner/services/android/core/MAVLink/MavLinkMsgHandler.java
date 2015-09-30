@@ -32,13 +32,6 @@ public class MavLinkMsgHandler {
                 handleHeartbeat(msg_heart);
                 break;
 
-            /*
-            TODO: find more reliable method to better determine the vehicle firmware.
-            case msg_statustext.MAVLINK_MSG_ID_STATUSTEXT:
-                msg_statustext msg_statustext = (msg_statustext) msg;
-                handleStatusText(msg_statustext.getText());
-                break;*/
-
             default:
                 break;
         }
@@ -72,20 +65,9 @@ public class MavLinkMsgHandler {
                 break;
 
             case MAV_AUTOPILOT.MAV_AUTOPILOT_PX4:
+                droneMgr.onVehicleTypeReceived(FirmwareType.PX4_NATIVE);
                 break;
         }
 
-    }
-
-    private void handleStatusText(String message) {
-        if (message.startsWith("ArduCopter") || message.startsWith("APM:Copter")) {
-            droneMgr.onVehicleTypeReceived(FirmwareType.ARDU_COPTER);
-        } else if (message.startsWith("ArduPlane") || message.startsWith("APM:Plane")) {
-            droneMgr.onVehicleTypeReceived(FirmwareType.ARDU_PLANE);
-        } else if (message.startsWith("Solo")) {
-            droneMgr.onVehicleTypeReceived(FirmwareType.ARDU_SOLO);
-        } else if (message.startsWith("ArduRover") || message.startsWith("APM:Rover")) {
-            droneMgr.onVehicleTypeReceived(FirmwareType.ARDU_ROVER);
-        }
     }
 }
